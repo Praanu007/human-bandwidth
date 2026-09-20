@@ -256,14 +256,14 @@
     var emailInput = document.getElementById('auth-email');
     var passInput = document.getElementById('auth-password');
 
+    nameInput.value = '';
+    emailInput.value = '';
+    passInput.value = '';
     if (nextRole === 'host') {
-      nameInput.value = 'Host Operator';
-      emailInput.value = HOST_EMAIL;
-      passInput.value = HOST_PASSWORD;
+      nameInput.placeholder = 'Host Operator';
+      emailInput.placeholder = 'host email';
+      passInput.placeholder = 'host password';
     } else {
-      nameInput.value = '';
-      emailInput.value = '';
-      passInput.value = '';
       nameInput.placeholder = 'Astra';
       emailInput.placeholder = 'you@school.edu';
       passInput.placeholder = 'choose a password';
