@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Human Bandwidth — Master Control</title>
+    <link rel="stylesheet" href="styles/terminal.css" />
+  </head>
+  <body class="hb-body" data-phase="normal">
+
+    <div id="mc-login" class="mc-login-shell">
+      <div class="mc-login-card">
+        <div class="auth-brand">HUMAN BANDWIDTH</div>
+        <h1>MASTER CONTROL</h1>
+        <p class="mc-login-note">Host access only. Credentials are fixed for this event.</p>
+        <form id="mc-login-form" class="auth-form">
+          <label>
+            <span>Host email</span>
+            <input id="mc-email" type="email" placeholder="host@humanbandwidth.dev" required autocomplete="off" />
+          </label>
+          <label>
+            <span>Host password</span>
+            <input id="mc-password" type="password" placeholder="••••••••" required autocomplete="off" />
+          </label>
+          <div id="mc-login-error" class="auth-error"></div>
+          <button type="submit" class="btn primary">UNLOCK MASTER CONTROL</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="mc-dash" class="mc-dash">
+      <header class="hud">
+        <div class="hud-inner">
+          <div class="hud-brand">HUMAN <span>BANDWIDTH</span></div>
+          <div class="hud-cell">
+            <div class="k">Role</div>
+            <div class="v">HOST</div>
+          </div>
+          <div class="hud-cell">
+            <div class="k">Session</div>
+            <div class="v" id="mc-session-state">WAITING</div>
+          </div>
+          <div class="spacer"></div>
+          <button id="mc-logout" class="btn ghost sm" type="button">LOG OUT</button>
+        </div>
+      </header>
+
+      <div class="wrap mc-wrap">
+        <div class="mc-toolbar">
+          <div>
+            <p class="kicker">LIVE EVENT</p>
+            <h2 class="mc-h2">Master Control</h2>
+          </div>
+          <div class="mc-actions">
+            <button id="mc-start" class="btn primary" type="button">START SESSION</button>
+            <button id="mc-expire" class="btn danger" type="button">EXPIRE SESSION</button>
+            <button id="mc-reset-all" class="btn ghost" type="button">RESET ALL PROGRESS</button>
+            <button id="mc-clear-log" class="btn ghost" type="button">CLEAR SECURITY LOG</button>
+            <button id="mc-refresh" class="btn ghost" type="button">REFRESH</button>
+          </div>
+        </div>
+
+        <div class="mc-stats">
+          <div class="mc-stat">
+            <span class="label">Participants</span>
+            <strong id="mc-count-participants">0</strong>
+          </div>
+          <div class="mc-stat">
+            <span class="label">Online now</span>
+            <strong id="mc-count-online">0</strong>
+          </div>
+          <div class="mc-stat">
+            <span class="label">Average score</span>
+            <strong id="mc-avg-score">0</strong>
+          </div>
+          <div class="mc-stat">
+            <span class="label">Hints burned</span>
+            <strong id="mc-count-hints">0</strong>
+          </div>
+          <div class="mc-stat">
+            <span class="label">Tab switches</span>
+            <strong id="mc-count-tabs">0</strong>
+          </div>
+          <div class="mc-stat">
+            <span class="label">Copy attempts</span>
+            <strong id="mc-count-copy">0</strong>
+          </div>
+        </div>
+
+        <div class="panel mc-panel">
+          <div class="panel-head"><span>Participants</span><span class="spacer"></span><span id="mc-participants-updated" class="kicker"></span></div>
+          <div class="mc-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Status</th>
+                  <th>Score</th>
+                  <th>Signals</th>
+                  <th>Bonus</th>
+                  <th>Hints</th>
+                  <th>Last seen</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="mc-participants-body"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="panel mc-panel">
+          <div class="panel-head"><span>Security log</span><span class="spacer"></span><span class="kicker">Most recent first</span></div>
+          <div class="mc-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Kind</th>
+                  <th>Detail</th>
+                  <th>Participant</th>
+                </tr>
+              </thead>
+              <tbody id="mc-security-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        'use strict';
+
+        // Kept in sync with app.js — the only hardcoded credential in the whole event.
+        var HOST_EMAIL = 'host@humanbandwidth.dev';
+        var HOST_PASSWORD = 'hbhost2026';
+
+        var STORAGE_KEY = 'hb.portal.v1';
+        var EVENT_KEY = 'hb.security.events';
+        var PARTICIPANTS_KEY = 'hb.participants.v1';
+        var SESSION_DURATION_MS = 90 * 60 * 1000;
+        var START_SCORE = 1000;
+        var ONLINE_WINDOW_MS = 60 * 1000;
+
+        var loginScreen = document.getElementById('mc-login');
+        var dash = document.getElementById('mc-dash');
+        var loginForm = document.getElementById('mc-login-form');
+        var loginError = document.getElementById('mc-login-error');
+
+        function normEmail(v) { return String(v == null ? '' : v).trim().toLowerCase(); }
+
+        function readJSON(key, fallback) {
+          try { var v = JSON.parse(localStorage.getItem(key)); return v == null ? fallback : v; }
+          catch (e) { return fallback; }
+        }
+        function writeJSON(key, value) {
+          try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* ignore */ }
+        }
+
+        function readPortalState() { return readJSON(STORAGE_KEY, {}); }
+        function writePortalState(patch) {
+          var s = readPortalState();
+          Object.assign(s, patch);
+          writeJSON(STORAGE_KEY, s);
+        }
+
+        function readParticipants() { return readJSON(PARTICIPANTS_KEY, {}); }
+        function writeParticipants(map) { writeJSON(PARTICIPANTS_KEY, map); }
+
+        function readSecurityEvents() { return readJSON(EVENT_KEY, []); }
+        function writeSecurityEvents(events) { writeJSON(EVENT_KEY, events); }
+
+        function isAuthed() {
+          try { return sessionStorage.getItem('hb.host.authed') === '1'; }
+          catch (e) { return false; }
+        }
+        function setAuthed(v) {
+          try { v ? sessionStorage.setItem('hb.host.authed', '1') : sessionStorage.removeItem('hb.host.authed'); }
+          catch (e) { /* ignore */ }
+        }
+
+        function showDash() {
+          loginScreen.style.display = 'none';
+          dash.style.display = 'block';
+          render();
+        }
+        function showLogin(msg) {
+          dash.style.display = 'none';
+          loginScreen.style.display = 'flex';
+          if (msg) loginError.textContent = msg;
+        }
+
+        loginForm.addEventListener('submit', function (e) {
+          e.preventDefault();
+          var email = normEmail(document.getElementById('mc-email').value);
+          var password = document.getElementById('mc-password').value;
+          if (email === HOST_EMAIL && password === HOST_PASSWORD) {
+            loginError.textContent = '';
+            setAuthed(true);
+            showDash();
+          } else {
+            loginError.textContent = 'Incorrect host credentials.';
+          }
+        });
+
+        document.getElementById('mc-logout').addEventListener('click', function () {
+          setAuthed(false);
+          showLogin('');
+        });
+
+        function fmtAgo(ts) {
+          if (!ts) return '—';
+          var s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+          if (s < 5) return 'just now';
+          if (s < 60) return s + 's ago';
+          var m = Math.floor(s / 60);
+          if (m < 60) return m + 'm ago';
+          var h = Math.floor(m / 60);
+          return h + 'h ago';
+        }
+
+        function statusPill(rec) {
+          var online = rec.lastSeen && (Date.now() - rec.lastSeen) < ONLINE_WINDOW_MS;
+          if (online) return '<span class="pill ok">ONLINE</span>';
+          if (rec.lastSeen) return '<span class="pill warn">IDLE</span>';
+          return '<span class="pill bad">OFFLINE</span>';
+        }
+
+        function render() {
+          var portal = readPortalState();
+          var participants = readParticipants();
+          var events = readSecurityEvents();
+          var rows = Object.keys(participants).map(function (k) { return participants[k]; })
+            .sort(function (a, b) { return (b.score || 0) - (a.score || 0); });
+
+          document.getElementById('mc-session-state').textContent =
+            portal.expired ? 'EXPIRED' : (portal.sessionStarted ? 'LIVE' : 'WAITING');
+
+          document.getElementById('mc-count-participants').textContent = String(rows.length);
+          var online = rows.filter(function (r) { return r.lastSeen && (Date.now() - r.lastSeen) < ONLINE_WINDOW_MS; }).length;
+          document.getElementById('mc-count-online').textContent = String(online);
+          var avg = rows.length ? Math.round(rows.reduce(function (a, r) { return a + (r.score || 0); }, 0) / rows.length) : 0;
+          document.getElementById('mc-avg-score').textContent = String(avg);
+          var hintTotal = rows.reduce(function (a, r) { return a + (r.hintsUsed ? r.hintsUsed.length : 0); }, 0);
+          document.getElementById('mc-count-hints').textContent = String(hintTotal);
+          document.getElementById('mc-count-tabs').textContent = String(events.filter(function (e) { return e.kind === 'tab-switch'; }).length);
+          document.getElementById('mc-count-copy').textContent = String(events.filter(function (e) { return e.kind === 'copy-attempt'; }).length);
+          document.getElementById('mc-participants-updated').textContent = rows.length ? ('updated ' + fmtAgo(Date.now() - 1)) : '';
+
+          var body = document.getElementById('mc-participants-body');
+          if (!rows.length) {
+            body.innerHTML = '<tr><td colspan="9">No participants have logged in yet.</td></tr>';
+          } else {
+            body.innerHTML = rows.map(function (r) {
+              var signals = (r.roundsCleared || []).filter(function (id) { return /^SIGNAL-/.test(id); }).length;
+              var bonus = (r.roundsCleared || []).filter(function (id) { return /^BONUS-/.test(id); }).length;
+              var hints = r.hintsUsed ? r.hintsUsed.length : 0;
+              return '<tr>' +
+                '<td>' + escapeHtml(r.name || '—') + '</td>' +
+                '<td>' + escapeHtml(r.email || '—') + '</td>' +
+                '<td>' + statusPill(r) + '</td>' +
+                '<td>' + String(r.score != null ? r.score : START_SCORE) + '</td>' +
+                '<td>' + signals + ' / 6</td>' +
+                '<td>' + bonus + ' / 2</td>' +
+                '<td>' + hints + '</td>' +
+                '<td>' + fmtAgo(r.lastSeen) + '</td>' +
+                '<td class="mc-row-actions">' +
+                  '<button class="btn ghost sm" data-action="reset" data-email="' + escapeHtml(r.email) + '">RESET</button>' +
+                  '<button class="btn danger sm" data-action="remove" data-email="' + escapeHtml(r.email) + '">REMOVE</button>' +
+                '</td>' +
+              '</tr>';
+            }).join('');
+          }
+
+          var secBody = document.getElementById('mc-security-body');
+          var recent = events.slice().reverse().slice(0, 60);
+          if (!recent.length) {
+            secBody.innerHTML = '<tr><td colspan="4">No security events yet.</td></tr>';
+          } else {
+            secBody.innerHTML = recent.map(function (ev) {
+              var kindClass = ev.kind === 'copy-attempt' || ev.kind === 'devtools-tamper' ? 'bad' : ev.kind === 'tab-switch' ? 'warn' : 'ok';
+              return '<tr>' +
+                '<td>' + escapeHtml(ev.ts || '—') + '</td>' +
+                '<td><span class="pill ' + kindClass + '">' + escapeHtml(ev.kind || '—') + '</span></td>' +
+                '<td>' + escapeHtml(ev.detail || '—') + '</td>' +
+                '<td>' + escapeHtml(ev.participantName || ev.participantId || '—') + '</td>' +
+              '</tr>';
+            }).join('');
+          }
+        }
+
+        function escapeHtml(s) {
+          return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+          });
+        }
+
+        document.getElementById('mc-participants-body').addEventListener('click', function (e) {
+          var btn = e.target.closest('button[data-action]');
+          if (!btn) return;
+          var email = normEmail(btn.dataset.email);
+          var map = readParticipants();
+          var rec = map[email];
+          if (!rec) return;
+
+          if (btn.dataset.action === 'remove') {
+            if (!window.confirm('Remove ' + rec.name + ' (' + rec.email + ')? This cannot be undone.')) return;
+            delete map[email];
+            writeParticipants(map);
+          } else if (btn.dataset.action === 'reset') {
+            if (!window.confirm('Reset progress and score for ' + rec.name + '?')) return;
+            rec.score = START_SCORE;
+            rec.roundsCleared = [];
+            rec.hintsUsed = [];
+            map[email] = rec;
+            writeParticipants(map);
+          }
+          render();
+        });
+
+        document.getElementById('mc-start').addEventListener('click', function () {
+          writePortalState({ sessionStarted: true, timerStart: Date.now(), expired: false });
+          render();
+        });
+        document.getElementById('mc-expire').addEventListener('click', function () {
+          if (!window.confirm('Expire the session for every participant right now?')) return;
+          writePortalState({ sessionStarted: false, expired: true });
+          render();
+        });
+        document.getElementById('mc-reset-all').addEventListener('click', function () {
+          if (!window.confirm('Reset EVERY participant to 1000 points and zero progress?')) return;
+          var map = readParticipants();
+          Object.keys(map).forEach(function (k) {
+            map[k].score = START_SCORE;
+            map[k].roundsCleared = [];
+            map[k].hintsUsed = [];
+          });
+          writeParticipants(map);
+          render();
+        });
+        document.getElementById('mc-clear-log').addEventListener('click', function () {
+          writeSecurityEvents([]);
+          render();
+        });
+        document.getElementById('mc-refresh').addEventListener('click', render);
+
+        window.addEventListener('storage', function (e) {
+          if (e.key === PARTICIPANTS_KEY || e.key === EVENT_KEY || e.key === STORAGE_KEY) render();
+        });
+
+        // A same-tab redirect (or a login on this same page) won't fire 'storage', and
+        // lastSeen/idle status needs to tick even with no external writes — poll too.
+        window.setInterval(function () { if (isAuthed()) render(); }, 1500);
+
+        if (isAuthed()) showDash(); else showLogin('');
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Human Bandwidth</title>
+    <link rel="stylesheet" href="styles/terminal.css" />
+  </head>
+  <body data-phase="normal" class="hb-body">
+    <div id="auth-screen" class="screen is-active">
+      <div class="auth-shell">
+        <div class="auth-card">
+          <div class="auth-brand">HUMAN BANDWIDTH</div>
+          <h1>PORTAL ACCESS</h1>
+
+          <div class="auth-switch">
+            <button class="auth-tab is-selected" data-role="player" type="button">PLAYER</button>
+            <button class="auth-tab" data-role="host" type="button">HOST</button>
+          </div>
+
+          <form id="auth-form" class="auth-form">
+            <label>
+              <span>Display name</span>
+              <input id="auth-name" type="text" placeholder="Astra" required />
+            </label>
+            <label>
+              <span>Email</span>
+              <input id="auth-email" type="email" placeholder="you@example.com" required />
+            </label>
+            <label>
+              <span>Password</span>
+              <input id="auth-password" type="password" placeholder="••••••••" required />
+            </label>
+            <div id="auth-error" class="auth-error" role="alert"></div>
+
+            <button type="submit" class="btn primary">ENTER PORTAL</button>
+          </form>
+
+          <div class="auth-note">
+            Players: sign in with any email — a fresh one registers you automatically with 1000 points.
+            Host: master control credentials are fixed for this event and open a separate control page.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="portal-screen" class="screen">
+      <header class="hud">
+        <div class="hud-inner">
+          <div class="hud-brand">HUMAN <span>BANDWIDTH</span></div>
+          <div class="hud-cell" id="hud-time">
+            <div class="k">TIME</div>
+            <div class="v">02:00:00</div>
+          </div>
+          <div class="hud-cell" id="hud-score">
+            <div class="k">SCORE</div>
+            <div class="v">640</div>
+          </div>
+          <div class="spacer"></div>
+          <div class="specbar">
+            <div class="k">SPECIFICATION</div>
+            <div class="cells"><i>██████████</i>░░░░░░</div>
+            <div class="pct">62%</div>
+          </div>
+        </div>
+      </header>
+
+      <div class="app-wrap">
+        <main class="portal-main">
+          <div class="welcome-row">
+            <div>
+              <div class="kicker">LIVE PORTAL</div>
+              <h2 id="welcome-name">Welcome back</h2>
+            </div>
+            <div id="session-status" class="session-status">WAITING FOR HOST</div>
+          </div>
+
+          <div class="portal-summary">
+            <div class="summary-card score-card">
+              <span class="label">Score</span>
+              <span class="value" id="live-score">1000</span>
+            </div>
+            <div class="summary-card">
+              <span class="label">Signals</span>
+              <span class="value" id="live-signal-count">0 / 6</span>
+            </div>
+            <div class="summary-card">
+              <span class="label">Hints Used</span>
+              <span class="value" id="live-hint-count">0</span>
+            </div>
+          </div>
+
+          <div class="game-grid">
+            <nav id="challenge-rail" class="rail"></nav>
+            <main class="panel">
+              <div class="panel-head">
+                <span id="panel-title">Signal 01</span>
+                <span class="spacer"></span>
+                <span id="panel-status" class="kicker">Open</span>
+              </div>
+
+              <div id="challenge-body" class="panel-body">
+                <p class="kicker">EVENT STATUS</p>
+                <h2>Signal 01</h2>
+                <p>Recover the first hidden requirement and validate the task identifier rules.</p>
+                <ul class="rules">
+                  <li>Investigate the preserved artifacts.</li>
+                  <li>Implement the correct rule.</li>
+                  <li>Run the visible and hidden test cases.</li>
+                </ul>
+              </div>
+            </main>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <div id="results" class="screen">
+      <div class="wrap score-wrap">
+        <div class="scorecard">
+          <div id="res-banner" class="lock-banner">
+            <h2 id="res-banner-title">TIME'S UP</h2>
+            <p id="res-banner-line1">YOUR BANDWIDTH HAS BEEN EXHAUSTED.</p>
+            <p id="res-banner-line2">SUBMISSION LOCKED.</p>
+          </div>
+
+          <div class="results-title">RUN SUMMARY</div>
+          <div class="score-row"><span class="k">Time Used</span><span class="fill"></span><span id="res-time-used" class="v">00:00:00</span></div>
+          <div class="score-row"><span class="k">Signals Cleared</span><span class="fill"></span><span id="res-spec" class="v">0 / 6</span></div>
+          <div class="score-row"><span class="k">Bonus Cleared</span><span class="fill"></span><span id="res-bonus" class="v">0 / 2</span></div>
+          <div class="score-row"><span class="k">Hints Used</span><span class="fill"></span><span id="res-hints" class="v">0</span></div>
+
+          <hr class="rule" />
+          <div class="final-score"><div class="n" id="res-score">1000</div></div>
+          <div class="rank"><div class="r" id="res-rank">SIGNAL LOST</div></div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
