@@ -329,7 +329,7 @@
           render();
         });
         document.getElementById('mc-reset-all').addEventListener('click', function () {
-          if (!window.confirm('Reset EVERY participant to 1000 points and zero progress?')) return;
+          if (!window.confirm('Reset EVERY participant to 1000 points, zero progress, and clear the session clock (expired/started)?')) return;
           var map = readParticipants();
           Object.keys(map).forEach(function (k) {
             map[k].score = START_SCORE;
@@ -337,6 +337,10 @@
             map[k].hintsUsed = [];
           });
           writeParticipants(map);
+          // A stuck 'expired' flag from a previous run otherwise locks every
+          // participant — including brand-new ones — straight to the results
+          // screen, so a full reset has to clear the session clock too.
+          writePortalState({ sessionStarted: false, timerStart: null, expired: false });
           render();
         });
         document.getElementById('mc-clear-log').addEventListener('click', function () {
